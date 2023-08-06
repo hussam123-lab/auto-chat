@@ -6,23 +6,31 @@ import websockets
 
 connections = {}
 
-rooms = {} # id, [client1,client2.....]
+rooms = {}
+
+room_inside = {}
 
 async def room_add(websocket,message):
-    _, room_id = message.split(" ")
+    _, room_id = message.split(":::")
+
+    if websocket.__str__() not in room_inside:
+        room_inside[websocket.__str__()] = room_id
     if room_id not in rooms:
         rooms[room_id] = [websocket.__str__()]
     else:
         rooms[room_id].append(websocket.__str__())
+    await websocket.send("Connected!")
 
 async def message_room(websocket,message):
-    _, message, room_id = message.split(" ")
-    print("here")
+    print("message: ",message)
+    _, message = message.split(":::")
+    room_id = room_inside.get(websocket.__str__())
     connected_clients = rooms.get(room_id)
     for client_name in connected_clients:
-        client_connection = connections.get(client_name)
-        print(client_connection)
-        await client_connection.send(message)
+        if client_name != websocket.__str__():
+            print("client_name: ",client_name)
+            client_connection = connections.get(client_name)
+            await client_connection.send(message)
         
     
 
@@ -32,10 +40,8 @@ funcs = {
     
 }
 
-
 async def message_handler(websocket,message):
-    command = message.split(" ")[0]
-    print(message,command)
+    command = message.split(":::")[0]
     command_function = funcs.get(command)
     if command_function:
         await command_function(websocket, message)
@@ -48,12 +54,8 @@ async def handler(websocket, path):
     if websocket.__str__() not in connections:
         connections[websocket.__str__()] = websocket
     async for message in websocket:
+        print(f"Recieved message: {message} from {websocket.__str__()}")
         await message_handler(websocket,message)
-        
-
-        print(f"Recieved message: {message}")
-        print(rooms)
-        await websocket.send("pong")
 
  
  
